@@ -37,12 +37,16 @@ class ProfitabilityAnalyzer:
             'Division': 'first'
         }).reset_index()
         
-        # Calculate metrics
-        product_metrics['Gross Margin %'] = (
-            product_metrics['Gross Profit'] / product_metrics['Sales'] * 100
+        # Calculate metrics with safe division
+        product_metrics['Gross Margin %'] = np.where(
+            product_metrics['Sales'] > 0,
+            product_metrics['Gross Profit'] / product_metrics['Sales'] * 100,
+            0
         )
-        product_metrics['Profit per Unit'] = (
-            product_metrics['Gross Profit'] / product_metrics['Units']
+        product_metrics['Profit per Unit'] = np.where(
+            product_metrics['Units'] > 0,
+            product_metrics['Gross Profit'] / product_metrics['Units'],
+            0
         )
         
         # Calculate contribution percentages
@@ -83,9 +87,11 @@ class ProfitabilityAnalyzer:
             'Units': 'sum'
         }).reset_index()
         
-        # Calculate average metrics
-        division_metrics['Avg Gross Margin %'] = (
-            division_metrics['Gross Profit'] / division_metrics['Sales'] * 100
+        # Calculate average metrics with safe division
+        division_metrics['Avg Gross Margin %'] = np.where(
+            division_metrics['Sales'] > 0,
+            division_metrics['Gross Profit'] / division_metrics['Sales'] * 100,
+            0
         )
         
         # Calculate contribution to total
@@ -170,8 +176,12 @@ class ProfitabilityAnalyzer:
         """
         products = self.product_level_analysis()
         
-        # Calculate cost ratio
-        products['Cost-to-Sales Ratio'] = products['Cost'] / products['Sales']
+        # Calculate cost ratio with safe division
+        products['Cost-to-Sales Ratio'] = np.where(
+            products['Sales'] > 0,
+            products['Cost'] / products['Sales'],
+            0
+        )
         
         # Identify overpriced/underpriced products
         avg_cost_ratio = products['Cost-to-Sales Ratio'].mean()

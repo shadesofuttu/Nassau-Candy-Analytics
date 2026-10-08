@@ -243,6 +243,100 @@ class ChartGenerator:
         else:
             return None
     
+    def create_portfolio_matrix(self, data: pd.DataFrame) -> go.Figure:
+        """
+        Create 2x2 portfolio matrix for strategic product analysis
+        """
+        # Calculate medians for quadrant boundaries
+        median_sales = data['Sales'].median()
+        median_margin = data['Gross Margin %'].median()
+        
+        # Assign quadrants
+        def assign_quadrant(row):
+            if row['Sales'] >= median_sales and row['Gross Margin %'] >= median_margin:
+                return 'Core Products'
+            elif row['Sales'] >= median_sales and row['Gross Margin %'] < median_margin:
+                return 'Margin Risk'
+            elif row['Sales'] < median_sales and row['Gross Margin %'] >= median_margin:
+                return 'Growth Opportunities'
+            else:
+                return 'Underperformers'
+        
+        data = data.copy()
+        data['Portfolio Quadrant'] = data.apply(assign_quadrant, axis=1)
+        
+        # Define colors for each quadrant
+        color_map = {
+            'Core Products': '#2ecc71',  # Green
+            'Margin Risk': '#f39c12',    # Orange
+            'Growth Opportunities': '#3498db',  # Blue
+            'Underperformers': '#e74c3c'  # Red
+        }
+        
+        fig = go.Figure()
+        
+        # Add scatter traces for each quadrant
+        for quadrant in ['Core Products', 'Margin Risk', 'Growth Opportunities', 'Underperformers']:
+            quadrant_data = data[data['Portfolio Quadrant'] == quadrant]
+            
+            fig.add_trace(go.Scatter(
+                x=quadrant_data['Sales'],
+                y=quadrant_data['Gross Margin %'],
+                mode='markers+text',
+                name=quadrant,
+                marker=dict(
+                    size=quadrant_data['Gross Profit'].abs() / 100,  # Scale bubble size
+                    color=color_map[quadrant],
+                    opacity=0.7,
+                    line=dict(width=1, color='white')
+                ),
+                text=quadrant_data['Product Name'],
+                textposition='top center',
+                textfont=dict(size=8),
+                hovertemplate='<b>%{text}</b><br>' +
+                              'Sales: $%{x:,.0f}<br>' +
+                              'Margin: %{y:.2f}%<br>' +
+                              'Gross Profit: $' + quadrant_data['Gross Profit'].apply(lambda x: f'{x:,.0f}').astype(str) +
+                              '<extra></extra>'
+            ))
+        
+        # Add quadrant dividing lines
+        fig.add_hline(y=median_margin, line_dash="dash", line_color="gray", opacity=0.5)
+        fig.add_vline(x=median_sales, line_dash="dash", line_color="gray", opacity=0.5)
+        
+        # Add quadrant labels as annotations
+        max_sales = data['Sales'].max()
+        max_margin = data['Gross Margin %'].max()
+        min_margin = data['Gross Margin %'].min()
+        
+        annotations = [
+            dict(x=median_sales + (max_sales - median_sales) * 0.5, y=median_margin + (max_margin - median_margin) * 0.9,
+                 text="Core Products<br>(Maintain & Protect)", showarrow=False,
+                 font=dict(size=11, color='#2ecc71', family='Arial Black'), bgcolor='white', opacity=0.8),
+            dict(x=median_sales + (max_sales - median_sales) * 0.5, y=median_margin - (median_margin - min_margin) * 0.5,
+                 text="Margin Risk<br>(Reprice or Cut Costs)", showarrow=False,
+                 font=dict(size=11, color='#f39c12', family='Arial Black'), bgcolor='white', opacity=0.8),
+            dict(x=median_sales * 0.5, y=median_margin + (max_margin - median_margin) * 0.9,
+                 text="Growth Opportunities<br>(Invest in Marketing)", showarrow=False,
+                 font=dict(size=11, color='#3498db', family='Arial Black'), bgcolor='white', opacity=0.8),
+            dict(x=median_sales * 0.5, y=median_margin - (median_margin - min_margin) * 0.5,
+                 text="Underperformers<br>(Review or Discontinue)", showarrow=False,
+                 font=dict(size=11, color='#e74c3c', family='Arial Black'), bgcolor='white', opacity=0.8)
+        ]
+        
+        fig.update_layout(
+            title='Product Portfolio Matrix',
+            xaxis_title='Sales ($)',
+            yaxis_title='Gross Margin (%)',
+            height=700,
+            showlegend=True,
+            legend=dict(x=0.01, y=0.99, bgcolor='rgba(255,255,255,0.8)'),
+            annotations=annotations,
+            hovermode='closest'
+        )
+        
+        return fig
+    
     def create_kpi_cards_data(self, summary_metrics: dict) -> dict:
         """
         Prepare data for KPI cards display
