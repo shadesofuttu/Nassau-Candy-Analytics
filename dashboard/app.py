@@ -58,22 +58,19 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-@st.cache_data
 def load_and_process_data():
     """
-    Load and process data with caching
+    Load and process data (removed caching to allow dynamic updates)
     """
     try:
         loader = DataLoader()
-        # Try to load from processed data first, then raw
+        # Try to load from database
         try:
             df = loader.load_from_database('orders')
+            return df
         except:
-            # Load from raw data (user needs to upload CSV)
-            st.warning("No database found. Please upload data in the sidebar.")
+            # No database found
             return None
-        
-        return df
     except Exception as e:
         st.error(f"Error loading data: {str(e)}")
         return None
@@ -128,8 +125,8 @@ def main():
                 st.success("✅ Data uploaded successfully!")
                 st.info(f"Loaded {len(df_processed)} records")
                 
-                # Clear cache to reload new data
-                st.cache_data.clear()
+                # Trigger rerun to load new data
+                st.rerun()
                 
             except Exception as e:
                 st.error(f"Error processing file: {str(e)}")
