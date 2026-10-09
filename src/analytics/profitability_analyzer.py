@@ -213,12 +213,15 @@ class ProfitabilityAnalyzer:
         divisions = self.division_level_analysis()
         revenue_pareto, profit_pareto = self.pareto_analysis()
         
+        # Check if Order ID exists for distinct counting
+        total_orders = self.data['Order ID'].nunique() if 'Order ID' in self.data.columns else len(self.data)
+        
         return {
             'total_revenue': self.data['Sales'].sum(),
             'total_profit': self.data['Gross Profit'].sum(),
             'overall_margin': (self.data['Gross Profit'].sum() / self.data['Sales'].sum() * 100),
             'total_products': len(products),
-            'total_orders': len(self.data),
+            'total_orders': total_orders,
             'avg_order_value': self.data['Sales'].mean(),
             'top_division': divisions.iloc[0]['Division'],
             'top_division_profit': divisions.iloc[0]['Gross Profit'],

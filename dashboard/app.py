@@ -58,22 +58,31 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-def load_and_process_data():
+@st.cache_data
+def load_default_data():
     """
-    Load and process data (removed caching to allow dynamic updates)
+    Load the base Nassau Candy dataset from the SQLite database ONCE per app lifecycle.
     """
     try:
         loader = DataLoader()
-        # Try to load from database
-        try:
-            df = loader.load_from_database('orders')
-            return df
-        except:
-            # No database found
-            return None
+        return loader.load_from_database('orders')
     except Exception as e:
-        st.error(f"Error loading data: {str(e)}")
+        st.error(f"Error loading default database: {str(e)}")
         return None
+
+def get_active_data():
+    """
+    Return the authoritative active dataframe for this user's session.
+    If the user has uploaded data, return that. If not, return the default data.
+    """
+    if 'uploaded_data' in st.session_state:
+        return st.session_state.uploaded_data
+    
+    # Fall back to default data if no upload exists
+    if 'default_data' not in st.session_state:
+        st.session_state.default_data = load_default_data()
+        
+    return st.session_state.default_data
 
 
 def main():
@@ -82,8 +91,8 @@ def main():
     st.markdown('<p style="text-align: center; color: #666;">Product Line Profitability & Margin Performance Analysis</p>', unsafe_allow_html=True)
     st.markdown("---")
     
-    # Load data early so it's available in sidebar
-    data = load_and_process_data()
+        # Load the single authoritative dataframe for the session
+    data = get_active_data()
     
     # Sidebar
     with st.sidebar:
@@ -111,25 +120,42 @@ def main():
         )
         
         if uploaded_file is not None:
-            try:
-                if uploaded_file.name.endswith('.csv'):
-                    df_upload = pd.read_csv(uploaded_file)
-                else:
-                    df_upload = pd.read_excel(uploaded_file)
-                
-                loader = DataLoader()
-                df_clean = loader.clean_data(df_upload)
-                df_processed = loader.calculate_metrics(df_clean)
-                loader.load_to_database(df_processed, 'orders')
-                
-                st.success("✅ Data uploaded successfully!")
-                st.info(f"Loaded {len(df_processed)} records")
-                
-                # Trigger rerun to load new data
+            # If user uploaded a NEW file, process it. We check if it's already in session to prevent loops.
+            if 'current_file_name' not in st.session_state or st.session_state.current_file_name != uploaded_file.name:
+                with st.spinner("Processing uploaded file..."):
+                    try:
+                        if uploaded_file.name.endswith('.csv'):
+                            df_upload = pd.read_csv(uploaded_file)
+                        else:
+                            df_upload = pd.read_excel(uploaded_file)
+                        
+                        loader = DataLoader()
+                        df_clean = loader.clean_data(df_upload)
+                        df_processed = loader.calculate_metrics(df_clean)
+                        
+                        # Update session state instead of modifying the global database file
+                        st.session_state.uploaded_data = df_processed
+                        st.session_state.current_file_name = uploaded_file.name
+                        
+                        # Clear uploaded file buffer to avoid re-triggering this block automatically
+                        st.rerun()
+                        
+                    except Exception as e:
+                        st.error(f"Error processing file: {str(e)}")
+            else:
+                st.success(f"✅ Using uploaded file: {st.session_state.current_file_name}")
+                st.info(f"Loaded {len(st.session_state.uploaded_data)} records")
+        else:
+            # If user clears the upload widget, remove uploaded data from session
+            if 'uploaded_data' in st.session_state:
+                del st.session_state.uploaded_data
+                if 'current_file_name' in st.session_state:
+                    del st.session_state.current_file_name
+                st.info("Reverted to default Nassau Candy dataset.")
                 st.rerun()
-                
-            except Exception as e:
-                st.error(f"Error processing file: {str(e)}")
+            else:
+                if data is not None:
+                    st.info(f"Using default dataset ({len(data):,} records).")
         
         st.markdown("---")
         st.markdown("### 💡 About")
