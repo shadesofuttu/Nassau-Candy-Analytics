@@ -42,7 +42,7 @@ env/
 .env.local
 
 # Database
-*.db
+# *.db - COMMENTED OUT: nassau_candy.db needed for deployment
 *.sqlite
 *.sqlite3
 
